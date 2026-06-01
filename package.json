@@ -1,0 +1,21 @@
+{
+  "name": "djpablo_base_bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@coinbase/cdp-sdk": "^1.50.0",
+    "axios": "^1.16.1",
+    "dotenv": "^17.4.2",
+    "node-cron": "^4.2.1",
+    "telegraf": "^4.16.3",
+    "viem": "^2.50.4"
+  }
+}
