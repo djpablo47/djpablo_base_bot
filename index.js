@@ -128,17 +128,28 @@ async function checkAlerts() {
             const currentPrice = await getPrice(alert.token);
             if (!currentPrice) continue;
             
-            console.log(`🔄 ${alert.token}: ${currentPrice} USDC`);
+            console.log(`🔄 ${alert.token}: ${currentPrice} USDC (${alert.direction === 'up' ? '↑ alerta subida' : '↓ alerta bajada'})`);
             
-            if (currentPrice >= alert.targetPrice) {
+            let condition = false;
+            if (alert.direction === 'up') {
+                condition = currentPrice >= alert.targetPrice;
+            } else {
+                condition = currentPrice <= alert.targetPrice;
+            }
+            
+            if (condition) {
                 alert.status = 'executed';
                 saveAlerts();
+                
+                const directionText = alert.direction === 'up' ? 'SUBIDA' : 'BAJADA';
+                const arrow = alert.direction === 'up' ? '📈' : '📉';
+                
                 await bot.telegram.sendMessage(alert.chatId,
-                    `🔔 *ALERTA DE PRECIO* 🔔\n\n` +
+                    `${arrow} *ALERTA DE ${directionText}* ${arrow}\n\n` +
                     `📊 *Token:* ${alert.token}\n` +
                     `💰 *Precio actual:* ${currentPrice} USDC\n` +
-                    `🎯 *Objetivo:* ${alert.targetPrice} USDC\n\n` +
-                    `✅ Alerta ejecutada. Puedes crear una nueva con /alert`,
+                    `🎯 *Objetivo (${alert.direction === 'up' ? 'subida' : 'bajada'}):* ${alert.targetPrice} USDC\n\n` +
+                    `✅ Alerta ejecutada.`,
                     { parse_mode: 'Markdown' }
                 );
             }
@@ -155,8 +166,9 @@ async function checkAlerts() {
 bot.start((ctx) => {
     if (!isAuthorized(ctx)) return ctx.reply('No autorizado');
     ctx.reply(`🚀 *Bot de Alertas Multi-Token* 🚀\n\n` +
-        `📌 *Comandos disponibles:*\n\n` +
-        `🔔 */alert TOKEN PRECIO* - Crea una alerta\n` +
+        `📌 *Comandos:*\n\n` +
+        `📈 */alert_up TOKEN PRECIO* - Alerta cuando SUBA\n` +
+        `📉 */alert_down TOKEN PRECIO* - Alerta cuando BAJE\n` +
         `📋 */alerts* - Ver alertas activas\n` +
         `❌ */cancel_alert ID* - Cancelar alerta\n` +
         `💰 */price TOKEN* - Precio actual\n` +
@@ -169,8 +181,12 @@ bot.start((ctx) => {
 bot.command('help', (ctx) => {
     if (!isAuthorized(ctx)) return;
     ctx.reply(`📋 *COMANDOS DETALLADOS*\n\n` +
-        `🔔 */alert TOKEN PRECIO*\n` +
-        `   Ej: /alert MORPHO 2.50\n\n` +
+        `📈 */alert_up TOKEN PRECIO*\n` +
+        `   Ej: /alert_up OFC 0.06\n` +
+        `   Te avisa cuando el precio *SUBA* a 0.06\n\n` +
+        `📉 */alert_down TOKEN PRECIO*\n` +
+        `   Ej: /alert_down OFC 0.04\n` +
+        `   Te avisa cuando el precio *BAJE* a 0.04\n\n` +
         `📋 */alerts*\n` +
         `   Muestra todas tus alertas activas\n\n` +
         `❌ */cancel_alert ID*\n` +
@@ -226,10 +242,10 @@ bot.command('price', async (ctx) => {
     }
 });
 
-bot.command('alert', (ctx) => {
+bot.command('alert_up', (ctx) => {
     if (!isAuthorized(ctx)) return;
     const args = ctx.message.text.split(' ');
-    if (args.length !== 3) return ctx.reply('Formato: /alert TOKEN PRECIO (ej: /alert MORPHO 2.50)');
+    if (args.length !== 3) return ctx.reply('Formato: /alert_up TOKEN PRECIO (ej: /alert_up OFC 0.06)');
     
     const token = args[1].toUpperCase();
     const price = parseFloat(args[2]);
@@ -245,10 +261,37 @@ bot.command('alert', (ctx) => {
         chatId: ctx.chat.id,
         token: token,
         targetPrice: price,
+        direction: 'up',
         status: 'active'
     });
     saveAlerts();
-    ctx.reply(`✅ Alerta creada: avisaré cuando *${token}* llegue a *${price} USDC*`, { parse_mode: 'Markdown' });
+    ctx.reply(`✅ Alerta de *SUBIDA* creada: avisaré cuando *${token}* SUBA a *${price} USDC*`, { parse_mode: 'Markdown' });
+});
+
+bot.command('alert_down', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const args = ctx.message.text.split(' ');
+    if (args.length !== 3) return ctx.reply('Formato: /alert_down TOKEN PRECIO (ej: /alert_down OFC 0.04)');
+    
+    const token = args[1].toUpperCase();
+    const price = parseFloat(args[2]);
+    
+    if (!TOKENS[token]) {
+        return ctx.reply(`Token no soportado. Tokens disponibles: ${Object.keys(TOKENS).join(', ')}`);
+    }
+    
+    if (!validateNumber(price)) return ctx.reply('Precio inválido');
+    
+    alerts.push({
+        id: Date.now(),
+        chatId: ctx.chat.id,
+        token: token,
+        targetPrice: price,
+        direction: 'down',
+        status: 'active'
+    });
+    saveAlerts();
+    ctx.reply(`✅ Alerta de *BAJADA* creada: avisaré cuando *${token}* BAJE a *${price} USDC*`, { parse_mode: 'Markdown' });
 });
 
 bot.command('alerts', (ctx) => {
@@ -258,7 +301,9 @@ bot.command('alerts', (ctx) => {
     
     let msg = '🔔 *Alertas activas:*\n\n';
     active.forEach(a => {
-        msg += `🆔 *${a.id}* | ${a.token} | 🎯 ${a.targetPrice} USDC\n`;
+        const directionIcon = a.direction === 'up' ? '📈' : '📉';
+        const directionText = a.direction === 'up' ? 'Subida' : 'Bajada';
+        msg += `${directionIcon} *${a.id}* | ${a.token} | ${directionText} | 🎯 ${a.targetPrice} USDC\n`;
     });
     ctx.reply(msg, { parse_mode: 'Markdown' });
 });
