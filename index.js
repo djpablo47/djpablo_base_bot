@@ -5,73 +5,57 @@ const axios = require('axios');
 const fs = require('fs');
 const http = require('http');
 
-const viem = require('viem');
-const createPublicClient = viem.createPublicClient;
-const viemHttp = viem.http;
-const { base } = require('viem/chains');
-const { privateKeyToAccount } = require('viem/accounts');
-
 // ==================== CONFIGURACIÓN ====================
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY;
 const AUTHORIZED_USER_ID = String(process.env.AUTHORIZED_USER_ID);
 
 if (!TELEGRAM_BOT_TOKEN) throw new Error('Falta TELEGRAM_BOT_TOKEN');
-if (!PRIVATE_KEY) throw new Error('Falta WALLET_PRIVATE_KEY');
 if (!AUTHORIZED_USER_ID) throw new Error('Falta AUTHORIZED_USER_ID');
 
 const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
-
-const publicClient = createPublicClient({
-    chain: base,
-    transport: viemHttp('https://mainnet.base.org')
-});
-
-const account = privateKeyToAccount(`0x${PRIVATE_KEY.replace('0x', '')}`);
-const BOT_WALLET_ADDRESS = account.address;
 
 // ==================== TOKENS ====================
 
 const TOKENS = {
     OFC: {
-        address: '0x752C5a95d202972E124390F30a50154409d3c858',
+        symbol: 'OFC',
         nombre: 'OneFootball Credits',
         web: 'https://onefootball.com',
         desc: 'Fan token de OneFootball'
     },
     MORPHO: {
-        address: '0xBAa5CC21fd487B8Fcc2F632f3F4E8D37262a0842',
+        symbol: 'MORPHO',
         nombre: 'Morpho',
         web: 'https://morpho.org',
         desc: 'Protocolo de préstamos optimizado'
     },
     VIRTUAL: {
-        address: '0x0b3e328455c4059EEb9e3f84b5543F74e24e7E1b',
+        symbol: 'VIRTUAL',
         nombre: 'Virtuals Protocol',
         web: 'https://virtuals.io',
         desc: 'IA y agentes virtuales en Base'
     },
     AERO: {
-        address: '0x940181a94A35A4569E4529A3CDfB74e38FD98631',
+        symbol: 'AERO',
         nombre: 'Aerodrome Finance',
         web: 'https://aerodrome.finance',
         desc: 'DEX principal de Base'
     },
     CB_MEGA: {
-        address: '0xcb111e6a2a3bde90856d299d61341ac302167d23',
+        symbol: 'CB_MEGA',
         nombre: 'CBMega',
         web: 'https://cbmega.io',
         desc: 'Token de ecosistema Base'
     },
     FC_BARCELONA: {
-        address: '0x110A0fC65a0f78840f4b4A04A42e8c285E424553',
+        symbol: 'FC_BARCELONA',
         nombre: 'FC Barcelona Fan Token',
         web: 'https://socios.com',
         desc: 'Fan Token oficial del Barça'
     },
     CB_LTC: {
-        address: '0xd9c78f7c6fd312d9b8d6b34043d1e5aa630b4d68',
+        symbol: 'CB_LTC',
         nombre: 'CBLTC',
         web: 'https://cbltc.io',
         desc: 'Token de ecosistema Base'
@@ -80,10 +64,7 @@ const TOKENS = {
 
 // ==================== ALMACENAMIENTO ====================
 
-const ORDERS_FILE = './orders.json';
 const ALERTS_FILE = './alerts.json';
-
-let orders = [];
 let alerts = [];
 let isChecking = false;
 
@@ -95,26 +76,6 @@ function isAuthorized(ctx) {
 
 function validateNumber(value) {
     return !isNaN(value) && isFinite(value) && Number(value) > 0;
-}
-
-function saveOrders() {
-    try {
-        fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
-    } catch (error) {
-        console.error('Error guardando órdenes:', error);
-    }
-}
-
-function loadOrders() {
-    try {
-        if (fs.existsSync(ORDERS_FILE)) {
-            orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf8'));
-            console.log(`📂 ${orders.length} órdenes cargadas`);
-        }
-    } catch (error) {
-        console.error('Error cargando órdenes:', error);
-        orders = [];
-    }
 }
 
 function saveAlerts() {
@@ -139,7 +100,7 @@ function loadAlerts() {
 
 // ==================== PRECIOS ====================
 
-async function getPrice(tokenSymbol = 'OFC') {
+async function getPrice(tokenSymbol) {
     try {
         const response = await axios.get(`https://api.dexscreener.com/latest/dex/search?q=${tokenSymbol}%2FUSDC%20base`);
         if (response.data && response.data.pairs && response.data.pairs.length > 0) {
@@ -155,50 +116,33 @@ async function getPrice(tokenSymbol = 'OFC') {
 
 // ==================== MONITOREO ====================
 
-async function checkOrdersAndAlerts() {
+async function checkAlerts() {
     if (isChecking) return;
     isChecking = true;
 
     try {
-        const currentPrice = await getPrice('OFC');
-        if (!currentPrice) return;
-
-        console.log(`🔄 Precio OFC: ${currentPrice} USDC`);
-
-        for (let i = 0; i < orders.length; i++) {
-            const order = orders[i];
-            if (order.status !== 'active') continue;
-
-            let shouldNotify = false;
-            if (order.type === 'buy' && currentPrice <= order.targetPrice) shouldNotify = true;
-            if (order.type === 'sell' && currentPrice >= order.targetPrice) shouldNotify = true;
-
-            if (shouldNotify) {
-                order.status = 'executed';
-                saveOrders();
-                await bot.telegram.sendMessage(order.chatId,
-                    `🔔 ORDEN LÍMITE ALCANZADA\n` +
-                    `Tipo: ${order.type === 'buy' ? 'COMPRA' : 'VENTA'}\n` +
-                    `Cantidad: ${order.amount} ${order.type === 'buy' ? 'USDC' : 'OFC'}\n` +
-                    `Precio objetivo: ${order.targetPrice} USDC\n` +
-                    `Precio actual: ${currentPrice} USDC`
-                );
-            }
-        }
-
         for (let i = 0; i < alerts.length; i++) {
             const alert = alerts[i];
             if (alert.status !== 'active') continue;
-
+            
+            const currentPrice = await getPrice(alert.token);
+            if (!currentPrice) continue;
+            
+            console.log(`🔄 ${alert.token}: ${currentPrice} USDC`);
+            
             if (currentPrice >= alert.targetPrice) {
                 alert.status = 'executed';
                 saveAlerts();
                 await bot.telegram.sendMessage(alert.chatId,
-                    `🔔 ALERTA DE PRECIO\nOFC ha alcanzado ${currentPrice} USDC\nObjetivo: ${alert.targetPrice} USDC`
+                    `🔔 *ALERTA DE PRECIO* 🔔\n\n` +
+                    `📊 *Token:* ${alert.token}\n` +
+                    `💰 *Precio actual:* ${currentPrice} USDC\n` +
+                    `🎯 *Objetivo:* ${alert.targetPrice} USDC\n\n` +
+                    `✅ Alerta ejecutada. Puedes crear una nueva con /alert`,
+                    { parse_mode: 'Markdown' }
                 );
             }
         }
-
     } catch (error) {
         console.error('Error en check:', error);
     } finally {
@@ -206,209 +150,128 @@ async function checkOrdersAndAlerts() {
     }
 }
 
-// ==================== COMANDOS PRINCIPALES ====================
+// ==================== COMANDOS ====================
 
 bot.start((ctx) => {
     if (!isAuthorized(ctx)) return ctx.reply('No autorizado');
-    ctx.reply(`🚀 Bot de Alertas OFC/USDC activo
-
-📌 Comandos:
-
-🔔 Alertas de precio:
-/limit_buy CANTIDAD PRECIO - Alerta compra OFC
-/limit_sell CANTIDAD PRECIO - Alerta venta OFC
-/alert PRECIO - Alerta simple OFC
-/alerts - Ver alertas activas
-/cancel_alert ID - Cancelar alerta
-
-📋 Órdenes:
-/orders - Ver órdenes activas
-/cancel ID - Cancelar orden
-
-💰 Información:
-/price - Precio OFC
-/wallet - Ver dirección wallet
-
-🪙 Info tokens:
-/morpho - Info Morpho
-/virtuals - Info Virtuals Protocol
-/aerodrome - Info Aerodrome
-/cbmega - Info CBMega
-/fcbarcelona - Info FC Barcelona
-/cbltc - Info CBLTC`);
+    ctx.reply(`🚀 *Bot de Alertas Multi-Token* 🚀\n\n` +
+        `📌 *Comandos disponibles:*\n\n` +
+        `🔔 */alert TOKEN PRECIO* - Crea una alerta\n` +
+        `📋 */alerts* - Ver alertas activas\n` +
+        `❌ */cancel_alert ID* - Cancelar alerta\n` +
+        `💰 */price TOKEN* - Precio actual\n` +
+        `ℹ️ */info TOKEN* - Info del token\n` +
+        `📊 */tokens* - Lista de tokens\n` +
+        `🆘 */help* - Ayuda completa`,
+        { parse_mode: 'Markdown' });
 });
 
 bot.command('help', (ctx) => {
-    if (!isAuthorized(ctx)) return ctx.reply('No autorizado');
-    ctx.reply(`📋 *COMANDOS DISPONIBLES*
-
-🔔 *Alertas de precio*
-/price - Precio de OFC
-/morpho - Info Morpho
-/virtuals - Info Virtuals Protocol
-/aerodrome - Info Aerodrome
-/cbmega - Info CBMega
-/fcbarcelona - Info FC Barcelona
-/cbltc - Info CBLTC
-
-📌 *Órdenes límite*
-/limit_buy CANTIDAD PRECIO - Alerta compra OFC
-/limit_sell CANTIDAD PRECIO - Alerta venta OFC
-/orders - Ver órdenes activas
-/cancel ID - Cancelar orden
-
-🔔 *Alertas simples*
-/alert PRECIO - Alerta cuando OFC llegue al precio
-/alerts - Ver alertas activas
-/cancel_alert ID - Cancelar alerta
-
-💰 *Información*
-/wallet - Ver dirección de la wallet`, { parse_mode: 'Markdown' });
+    if (!isAuthorized(ctx)) return;
+    ctx.reply(`📋 *COMANDOS DETALLADOS*\n\n` +
+        `🔔 */alert TOKEN PRECIO*\n` +
+        `   Ej: /alert MORPHO 2.50\n\n` +
+        `📋 */alerts*\n` +
+        `   Muestra todas tus alertas activas\n\n` +
+        `❌ */cancel_alert ID*\n` +
+        `   Ej: /cancel_alert 1734567890\n\n` +
+        `💰 */price TOKEN*\n` +
+        `   Ej: /price AERO\n\n` +
+        `ℹ️ */info TOKEN*\n` +
+        `   Ej: /info VIRTUAL\n\n` +
+        `📊 */tokens*\n` +
+        `   Muestra todos los tokens disponibles\n\n` +
+        `🆘 */help* - Este mensaje`,
+        { parse_mode: 'Markdown' });
 });
 
-bot.command('wallet', (ctx) => {
+bot.command('tokens', (ctx) => {
     if (!isAuthorized(ctx)) return;
-    ctx.reply(`💰 Wallet: ${BOT_WALLET_ADDRESS}`);
+    let msg = `📊 *Tokens disponibles:*\n\n`;
+    Object.keys(TOKENS).forEach(key => {
+        msg += `🔸 *${key}* - ${TOKENS[key].nombre}\n`;
+    });
+    ctx.reply(msg, { parse_mode: 'Markdown' });
+});
+
+bot.command('info', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const args = ctx.message.text.split(' ');
+    if (args.length !== 2) return ctx.reply('Formato: /info TOKEN (ej: /info MORPHO)');
+    
+    const token = args[1].toUpperCase();
+    if (!TOKENS[token]) {
+        return ctx.reply(`Token no soportado. Usa /tokens para ver la lista.`);
+    }
+    
+    const t = TOKENS[token];
+    ctx.reply(`📊 *${t.nombre} (${t.symbol})*\n🔗 Web: ${t.web}\n📄 ${t.desc}\n🛠️ Red: Base`, { parse_mode: 'Markdown' });
 });
 
 bot.command('price', async (ctx) => {
     if (!isAuthorized(ctx)) return;
-    const price = await getPrice('OFC');
-    ctx.reply(price ? `💵 OFC: ${price} USDC` : '❌ Error obteniendo precio');
-});
-
-bot.command('morpho', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const t = TOKENS.MORPHO;
-    ctx.reply(`📊 *${t.nombre} (MORPHO)*
-📍 Contrato: \`${t.address}\`
-🔗 Web: ${t.web}
-📄 Descripción: ${t.desc}
-🛠️ Red: Base`, { parse_mode: 'Markdown' });
-});
-
-bot.command('virtuals', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const t = TOKENS.VIRTUAL;
-    ctx.reply(`📊 *${t.nombre} (VIRTUAL)*
-📍 Contrato: \`${t.address}\`
-🔗 Web: ${t.web}
-📄 Descripción: ${t.desc}
-🛠️ Red: Base`, { parse_mode: 'Markdown' });
-});
-
-bot.command('aerodrome', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const t = TOKENS.AERO;
-    ctx.reply(`📊 *${t.nombre} (AERO)*
-📍 Contrato: \`${t.address}\`
-🔗 Web: ${t.web}
-📄 Descripción: ${t.desc}
-🛠️ Red: Base`, { parse_mode: 'Markdown' });
-});
-
-bot.command('cbmega', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const t = TOKENS.CB_MEGA;
-    ctx.reply(`📊 *${t.nombre} (CB MEGA)*
-📍 Contrato: \`${t.address}\`
-🔗 Web: ${t.web}
-📄 Descripción: ${t.desc}
-🛠️ Red: Base`, { parse_mode: 'Markdown' });
-});
-
-bot.command('fcbarcelona', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const t = TOKENS.FC_BARCELONA;
-    ctx.reply(`📊 *${t.nombre} (BAR)*
-📍 Contrato: \`${t.address}\`
-🔗 Web: ${t.web}
-📄 Descripción: ${t.desc}
-🛠️ Red: Chiliz Chain / Base`, { parse_mode: 'Markdown' });
-});
-
-bot.command('cbltc', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const t = TOKENS.CB_LTC;
-    ctx.reply(`📊 *${t.nombre} (CB LTC)*
-📍 Contrato: \`${t.address}\`
-🔗 Web: ${t.web}
-📄 Descripción: ${t.desc}
-🛠️ Red: Base`, { parse_mode: 'Markdown' });
-});
-
-bot.command('limit_buy', (ctx) => {
-    if (!isAuthorized(ctx)) return;
     const args = ctx.message.text.split(' ');
-    if (args.length !== 3) return ctx.reply('Formato: /limit_buy CANTIDAD PRECIO');
-    const amount = parseFloat(args[1]);
-    const price = parseFloat(args[2]);
-    if (!validateNumber(amount) || !validateNumber(price)) return ctx.reply('Valores inválidos');
-    orders.push({ id: Date.now(), chatId: ctx.chat.id, type: 'buy', amount, targetPrice: price, status: 'active' });
-    saveOrders();
-    ctx.reply(`✅ Alerta COMPRA: avisaré cuando OFC baje a ${price}`);
-});
-
-bot.command('limit_sell', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const args = ctx.message.text.split(' ');
-    if (args.length !== 3) return ctx.reply('Formato: /limit_sell CANTIDAD PRECIO');
-    const amount = parseFloat(args[1]);
-    const price = parseFloat(args[2]);
-    if (!validateNumber(amount) || !validateNumber(price)) return ctx.reply('Valores inválidos');
-    orders.push({ id: Date.now(), chatId: ctx.chat.id, type: 'sell', amount, targetPrice: price, status: 'active' });
-    saveOrders();
-    ctx.reply(`✅ Alerta VENTA: avisaré cuando OFC suba a ${price}`);
-});
-
-bot.command('orders', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const active = orders.filter(o => o.status === 'active');
-    if (active.length === 0) return ctx.reply('No hay órdenes');
-    let msg = '📋 Órdenes:\n';
-    active.forEach(o => msg += `${o.id} | ${o.type === 'buy' ? 'COMPRA' : 'VENTA'} | ${o.amount} | ${o.targetPrice}\n`);
-    ctx.reply(msg);
-});
-
-bot.command('cancel', (ctx) => {
-    if (!isAuthorized(ctx)) return;
-    const args = ctx.message.text.split(' ');
-    if (args.length !== 2) return ctx.reply('/cancel ID');
-    const id = parseInt(args[1]);
-    const idx = orders.findIndex(o => o.id === id);
-    if (idx === -1) return ctx.reply('Orden no encontrada');
-    orders.splice(idx, 1);
-    saveOrders();
-    ctx.reply(`✅ Orden ${id} cancelada`);
+    if (args.length !== 2) return ctx.reply('Formato: /price TOKEN (ej: /price AERO)');
+    
+    const token = args[1].toUpperCase();
+    if (!TOKENS[token]) {
+        return ctx.reply(`Token no soportado. Usa /tokens para ver la lista.`);
+    }
+    
+    const price = await getPrice(token);
+    if (price) {
+        ctx.reply(`💰 *${token}:* ${price} USDC`, { parse_mode: 'Markdown' });
+    } else {
+        ctx.reply(`❌ No se pudo obtener el precio de ${token}`);
+    }
 });
 
 bot.command('alert', (ctx) => {
     if (!isAuthorized(ctx)) return;
     const args = ctx.message.text.split(' ');
-    if (args.length !== 2) return ctx.reply('/alert PRECIO');
-    const price = parseFloat(args[1]);
+    if (args.length !== 3) return ctx.reply('Formato: /alert TOKEN PRECIO (ej: /alert MORPHO 2.50)');
+    
+    const token = args[1].toUpperCase();
+    const price = parseFloat(args[2]);
+    
+    if (!TOKENS[token]) {
+        return ctx.reply(`Token no soportado. Tokens disponibles: ${Object.keys(TOKENS).join(', ')}`);
+    }
+    
     if (!validateNumber(price)) return ctx.reply('Precio inválido');
-    alerts.push({ id: Date.now(), chatId: ctx.chat.id, targetPrice: price, status: 'active' });
+    
+    alerts.push({
+        id: Date.now(),
+        chatId: ctx.chat.id,
+        token: token,
+        targetPrice: price,
+        status: 'active'
+    });
     saveAlerts();
-    ctx.reply(`✅ Alerta: avisaré cuando OFC llegue a ${price}`);
+    ctx.reply(`✅ Alerta creada: avisaré cuando *${token}* llegue a *${price} USDC*`, { parse_mode: 'Markdown' });
 });
 
 bot.command('alerts', (ctx) => {
     if (!isAuthorized(ctx)) return;
     const active = alerts.filter(a => a.status === 'active');
-    if (active.length === 0) return ctx.reply('No hay alertas');
-    let msg = '🔔 Alertas:\n';
-    active.forEach(a => msg += `${a.id} | Precio: ${a.targetPrice}\n`);
-    ctx.reply(msg);
+    if (active.length === 0) return ctx.reply('No hay alertas activas');
+    
+    let msg = '🔔 *Alertas activas:*\n\n';
+    active.forEach(a => {
+        msg += `🆔 *${a.id}* | ${a.token} | 🎯 ${a.targetPrice} USDC\n`;
+    });
+    ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
 bot.command('cancel_alert', (ctx) => {
     if (!isAuthorized(ctx)) return;
     const args = ctx.message.text.split(' ');
-    if (args.length !== 2) return ctx.reply('/cancel_alert ID');
+    if (args.length !== 2) return ctx.reply('Formato: /cancel_alert ID');
+    
     const id = parseInt(args[1]);
     const idx = alerts.findIndex(a => a.id === id);
     if (idx === -1) return ctx.reply('Alerta no encontrada');
+    
     alerts.splice(idx, 1);
     saveAlerts();
     ctx.reply(`✅ Alerta ${id} cancelada`);
@@ -416,13 +279,13 @@ bot.command('cancel_alert', (ctx) => {
 
 // ==================== INICIALIZACIÓN ====================
 
-loadOrders();
 loadAlerts();
 
 bot.launch();
-console.log('🚀 Bot iniciado');
+console.log('🚀 Bot de Alertas Multi-Token iniciado');
 
-setInterval(checkOrdersAndAlerts, 30000);
+// Monitoreo cada 30 segundos
+setInterval(checkAlerts, 30000);
 
 // Servidor HTTP para Render
 const PORT = process.env.PORT || 10000;
