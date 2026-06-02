@@ -5,7 +5,9 @@ const axios = require('axios');
 const fs = require('fs');
 const http = require('http');
 
-const { createPublicClient, http as viemHttp } = require('viem');
+const viem = require('viem');
+const createPublicClient = viem.createPublicClient;
+const viemHttp = viem.http;
 const { base } = require('viem/chains');
 const { privateKeyToAccount } = require('viem/accounts');
 
