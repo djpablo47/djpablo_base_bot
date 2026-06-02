@@ -254,17 +254,13 @@ process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 // ===== SERVIDOR HTTP MÍNIMO PARA RENDER =====
-const http = require('http');
-
 const PORT = process.env.PORT || 10000;
 
 const server = http.createServer((req, res) => {
-  // Responder a los health checks de Render
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Bot de alertas OFC funcionando ✅');
 });
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor HTTP escuchando en puerto ${PORT}`);
-  console.log(`🌐 Health check: https://djpablo-base-bot.onrender.com`);
 });
