@@ -254,9 +254,11 @@ process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 // ===== SERVIDOR HTTP MÍNIMO PARA RENDER =====
+const httpServer = require('http');
+
 const PORT = process.env.PORT || 10000;
 
-const server = http.createServer((req, res) => {
+const server = httpServer.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Bot de alertas OFC funcionando ✅');
 });
