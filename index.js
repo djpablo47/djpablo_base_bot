@@ -3,10 +3,13 @@ require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const fs = require('fs');
+const http = require('http');
 
-const { createPublicClient, http } = require('viem');
+const { createPublicClient, http as viemHttp } = require('viem');
 const { base } = require('viem/chains');
 const { privateKeyToAccount } = require('viem/accounts');
+
+// ==================== CONFIGURACIÓN ====================
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY;
@@ -20,14 +23,60 @@ const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 
 const publicClient = createPublicClient({
     chain: base,
-    transport: http('https://mainnet.base.org')
+    transport: viemHttp('https://mainnet.base.org')
 });
 
 const account = privateKeyToAccount(`0x${PRIVATE_KEY.replace('0x', '')}`);
 const BOT_WALLET_ADDRESS = account.address;
 
-const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const OFC = '0x752C5a95d202972E124390F30a50154409d3c858';
+// ==================== TOKENS ====================
+
+const TOKENS = {
+    OFC: {
+        address: '0x752C5a95d202972E124390F30a50154409d3c858',
+        nombre: 'OneFootball Credits',
+        web: 'https://onefootball.com',
+        desc: 'Fan token de OneFootball'
+    },
+    MORPHO: {
+        address: '0xBAa5CC21fd487B8Fcc2F632f3F4E8D37262a0842',
+        nombre: 'Morpho',
+        web: 'https://morpho.org',
+        desc: 'Protocolo de préstamos optimizado'
+    },
+    VIRTUAL: {
+        address: '0x0b3e328455c4059EEb9e3f84b5543F74e24e7E1b',
+        nombre: 'Virtuals Protocol',
+        web: 'https://virtuals.io',
+        desc: 'IA y agentes virtuales en Base'
+    },
+    AERO: {
+        address: '0x940181a94A35A4569E4529A3CDfB74e38FD98631',
+        nombre: 'Aerodrome Finance',
+        web: 'https://aerodrome.finance',
+        desc: 'DEX principal de Base'
+    },
+    CB_MEGA: {
+        address: '0xcb111e6a2a3bde90856d299d61341ac302167d23',
+        nombre: 'CBMega',
+        web: 'https://cbmega.io',
+        desc: 'Token de ecosistema Base'
+    },
+    FC_BARCELONA: {
+        address: '0x110A0fC65a0f78840f4b4A04A42e8c285E424553',
+        nombre: 'FC Barcelona Fan Token',
+        web: 'https://socios.com',
+        desc: 'Fan Token oficial del Barça'
+    },
+    CB_LTC: {
+        address: '0xd9c78f7c6fd312d9b8d6b34043d1e5aa630b4d68',
+        nombre: 'CBLTC',
+        web: 'https://cbltc.io',
+        desc: 'Token de ecosistema Base'
+    }
+};
+
+// ==================== ALMACENAMIENTO ====================
 
 const ORDERS_FILE = './orders.json';
 const ALERTS_FILE = './alerts.json';
@@ -35,6 +84,8 @@ const ALERTS_FILE = './alerts.json';
 let orders = [];
 let alerts = [];
 let isChecking = false;
+
+// ==================== FUNCIONES AUXILIARES ====================
 
 function isAuthorized(ctx) {
     return String(ctx.from.id) === AUTHORIZED_USER_ID;
@@ -84,26 +135,30 @@ function loadAlerts() {
     }
 }
 
-async function getPrice() {
+// ==================== PRECIOS ====================
+
+async function getPrice(tokenSymbol = 'OFC') {
     try {
-        const response = await axios.get('https://api.dexscreener.com/latest/dex/search?q=OFC%2FUSDC%20base');
+        const response = await axios.get(`https://api.dexscreener.com/latest/dex/search?q=${tokenSymbol}%2FUSDC%20base`);
         if (response.data && response.data.pairs && response.data.pairs.length > 0) {
-            const pair = response.data.pairs.find(p => p.chainId === 'base' && p.baseToken.symbol === 'OFC');
+            const pair = response.data.pairs.find(p => p.chainId === 'base' && p.baseToken.symbol === tokenSymbol);
             if (pair) return Number(pair.priceUsd);
         }
         return null;
     } catch (error) {
-        console.error('Error precio:', error.message);
+        console.error(`Error precio ${tokenSymbol}:`, error.message);
         return null;
     }
 }
+
+// ==================== MONITOREO ====================
 
 async function checkOrdersAndAlerts() {
     if (isChecking) return;
     isChecking = true;
 
     try {
-        const currentPrice = await getPrice();
+        const currentPrice = await getPrice('OFC');
         if (!currentPrice) return;
 
         console.log(`🔄 Precio OFC: ${currentPrice} USDC`);
@@ -149,20 +204,135 @@ async function checkOrdersAndAlerts() {
     }
 }
 
+// ==================== COMANDOS PRINCIPALES ====================
+
 bot.start((ctx) => {
     if (!isAuthorized(ctx)) return ctx.reply('No autorizado');
-    ctx.reply(`🚀 Bot de Alertas OFC/USDC\n\n/limit_buy CANTIDAD PRECIO\n/limit_sell CANTIDAD PRECIO\n/alert PRECIO\n/price\n/orders\n/alerts\n/wallet`);
+    ctx.reply(`🚀 Bot de Alertas OFC/USDC activo
+
+📌 Comandos:
+
+🔔 Alertas de precio:
+/limit_buy CANTIDAD PRECIO - Alerta compra OFC
+/limit_sell CANTIDAD PRECIO - Alerta venta OFC
+/alert PRECIO - Alerta simple OFC
+/alerts - Ver alertas activas
+/cancel_alert ID - Cancelar alerta
+
+📋 Órdenes:
+/orders - Ver órdenes activas
+/cancel ID - Cancelar orden
+
+💰 Información:
+/price - Precio OFC
+/wallet - Ver dirección wallet
+
+🪙 Info tokens:
+/morpho - Info Morpho
+/virtuals - Info Virtuals Protocol
+/aerodrome - Info Aerodrome
+/cbmega - Info CBMega
+/fcbarcelona - Info FC Barcelona
+/cbltc - Info CBLTC`);
+});
+
+bot.command('help', (ctx) => {
+    if (!isAuthorized(ctx)) return ctx.reply('No autorizado');
+    ctx.reply(`📋 *COMANDOS DISPONIBLES*
+
+🔔 *Alertas de precio*
+/price - Precio de OFC
+/morpho - Info Morpho
+/virtuals - Info Virtuals Protocol
+/aerodrome - Info Aerodrome
+/cbmega - Info CBMega
+/fcbarcelona - Info FC Barcelona
+/cbltc - Info CBLTC
+
+📌 *Órdenes límite*
+/limit_buy CANTIDAD PRECIO - Alerta compra OFC
+/limit_sell CANTIDAD PRECIO - Alerta venta OFC
+/orders - Ver órdenes activas
+/cancel ID - Cancelar orden
+
+🔔 *Alertas simples*
+/alert PRECIO - Alerta cuando OFC llegue al precio
+/alerts - Ver alertas activas
+/cancel_alert ID - Cancelar alerta
+
+💰 *Información*
+/wallet - Ver dirección de la wallet`, { parse_mode: 'Markdown' });
 });
 
 bot.command('wallet', (ctx) => {
     if (!isAuthorized(ctx)) return;
-    ctx.reply(`💰 ${BOT_WALLET_ADDRESS}`);
+    ctx.reply(`💰 Wallet: ${BOT_WALLET_ADDRESS}`);
 });
 
 bot.command('price', async (ctx) => {
     if (!isAuthorized(ctx)) return;
-    const price = await getPrice();
-    ctx.reply(price ? `💵 OFC: ${price} USDC` : '❌ Error');
+    const price = await getPrice('OFC');
+    ctx.reply(price ? `💵 OFC: ${price} USDC` : '❌ Error obteniendo precio');
+});
+
+bot.command('morpho', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const t = TOKENS.MORPHO;
+    ctx.reply(`📊 *${t.nombre} (MORPHO)*
+📍 Contrato: \`${t.address}\`
+🔗 Web: ${t.web}
+📄 Descripción: ${t.desc}
+🛠️ Red: Base`, { parse_mode: 'Markdown' });
+});
+
+bot.command('virtuals', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const t = TOKENS.VIRTUAL;
+    ctx.reply(`📊 *${t.nombre} (VIRTUAL)*
+📍 Contrato: \`${t.address}\`
+🔗 Web: ${t.web}
+📄 Descripción: ${t.desc}
+🛠️ Red: Base`, { parse_mode: 'Markdown' });
+});
+
+bot.command('aerodrome', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const t = TOKENS.AERO;
+    ctx.reply(`📊 *${t.nombre} (AERO)*
+📍 Contrato: \`${t.address}\`
+🔗 Web: ${t.web}
+📄 Descripción: ${t.desc}
+🛠️ Red: Base`, { parse_mode: 'Markdown' });
+});
+
+bot.command('cbmega', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const t = TOKENS.CB_MEGA;
+    ctx.reply(`📊 *${t.nombre} (CB MEGA)*
+📍 Contrato: \`${t.address}\`
+🔗 Web: ${t.web}
+📄 Descripción: ${t.desc}
+🛠️ Red: Base`, { parse_mode: 'Markdown' });
+});
+
+bot.command('fcbarcelona', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const t = TOKENS.FC_BARCELONA;
+    ctx.reply(`📊 *${t.nombre} (BAR)*
+📍 Contrato: \`${t.address}\`
+🔗 Web: ${t.web}
+📄 Descripción: ${t.desc}
+🛠️ Red: Chiliz Chain / Base`, { parse_mode: 'Markdown' });
+});
+
+bot.command('cbltc', (ctx) => {
+    if (!isAuthorized(ctx)) return;
+    const t = TOKENS.CB_LTC;
+    ctx.reply(`📊 *${t.nombre} (CB LTC)*
+📍 Contrato: \`${t.address}\`
+🔗 Web: ${t.web}
+📄 Descripción: ${t.desc}
+🛠️ Red: Base`, { parse_mode: 'Markdown' });
 });
 
 bot.command('limit_buy', (ctx) => {
@@ -242,6 +412,8 @@ bot.command('cancel_alert', (ctx) => {
     ctx.reply(`✅ Alerta ${id} cancelada`);
 });
 
+// ==================== INICIALIZACIÓN ====================
+
 loadOrders();
 loadAlerts();
 
@@ -250,19 +422,15 @@ console.log('🚀 Bot iniciado');
 
 setInterval(checkOrdersAndAlerts, 30000);
 
+// Servidor HTTP para Render
+const PORT = process.env.PORT || 10000;
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot de alertas multi-token funcionando ✅');
+});
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Servidor HTTP escuchando en puerto ${PORT}`);
+});
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
-// ===== SERVIDOR HTTP MÍNIMO PARA RENDER =====
-const httpServer = require('http');
-
-const PORT = process.env.PORT || 10000;
-
-const server = httpServer.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot de alertas OFC funcionando ✅');
-});
-
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Servidor HTTP escuchando en puerto ${PORT}`);
-});
