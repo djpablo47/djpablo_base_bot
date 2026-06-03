@@ -87,15 +87,16 @@ function saveAlerts() {
 }
 
 function loadAlerts() {
-    try {
-        if (fs.existsSync(ALERTS_FILE)) {
-            alerts = JSON.parse(fs.readFileSync(ALERTS_FILE, 'utf8'));
-            console.log(`📂 ${alerts.length} alertas cargadas`);
-        }
-    } catch (error) {
-        console.error('Error cargando alertas:', error);
-        alerts = [];
+  try {
+    if (!fs.existsSync(ALERTS_FILE)) {
+      fs.writeFileSync(ALERTS_FILE, '[]');
     }
+    alerts = JSON.parse(fs.readFileSync(ALERTS_FILE, 'utf8'));
+    console.log(`📂 ${alerts.length} alertas cargadas`);
+  } catch (e) {
+    console.error('Error cargando alertas:', e);
+    alerts = [];
+  }
 }
 
 // ==================== PRECIOS ====================
