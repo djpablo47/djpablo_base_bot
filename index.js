@@ -327,7 +327,10 @@ bot.command('cancel_alert', (ctx) => {
 
 loadAlerts();
 
-bot.launch();
+(async () => {
+  await bot.telegram.deleteWebhook();
+  bot.launch();
+})();
 console.log('🚀 Bot de Alertas Multi-Token iniciado');
 
 // Monitoreo cada 30 segundos
