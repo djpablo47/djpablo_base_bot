@@ -325,13 +325,26 @@ bot.command('cancel_alert', (ctx) => {
 
 // ==================== INICIALIZACIÓN ====================
 
+// ==================== INICIALIZACIÓN ====================
+
 loadAlerts();
 
-(async () => {
-  await bot.telegram.deleteWebhook();
-  bot.launch();
-})();
-console.log('🚀 Bot de Alertas Multi-Token iniciado');
+const startBot = async () => {
+  try {
+    await bot.telegram.deleteWebhook();
+
+    await bot.launch({
+      dropPendingUpdates: true
+    });
+
+    console.log('🚀 Bot de Alertas Multi-Token iniciado');
+  } catch (err) {
+    console.error('Error launching bot:', err);
+    process.exit(1);
+  }
+};
+
+startBot();
 
 // Monitoreo cada 30 segundos
 setInterval(checkAlerts, 30000);
@@ -339,11 +352,12 @@ setInterval(checkAlerts, 30000);
 // Servidor HTTP para Render
 const PORT = process.env.PORT || 10000;
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot de alertas multi-token funcionando ✅');
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Bot de alertas multi-token funcionando ✅');
 });
+
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Servidor HTTP escuchando en puerto ${PORT}`);
+  console.log(`✅ Servidor HTTP escuchando en puerto ${PORT}`);
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
