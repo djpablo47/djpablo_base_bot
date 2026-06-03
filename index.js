@@ -181,25 +181,37 @@ bot.start((ctx) => {
 
 bot.command('help', (ctx) => {
     if (!isAuthorized(ctx)) return;
-    ctx.reply(`📋 *COMANDOS DETALLADOS*\n\n` +
-        `📈 */alert_up TOKEN PRECIO*\n` +
-        `   Ej: /alert_up OFC 0.06\n` +
-        `   Te avisa cuando el precio *SUBA* a 0.06\n\n` +
-        `📉 */alert_down TOKEN PRECIO*\n` +
-        `   Ej: /alert_down OFC 0.04\n` +
-        `   Te avisa cuando el precio *BAJE* a 0.04\n\n` +
-        `📋 */alerts*\n` +
-        `   Muestra todas tus alertas activas\n\n` +
-        `❌ */cancel_alert ID*\n` +
-        `   Ej: /cancel_alert 1734567890\n\n` +
-        `💰 */price TOKEN*\n` +
-        `   Ej: /price AERO\n\n` +
-        `ℹ️ */info TOKEN*\n` +
-        `   Ej: /info VIRTUAL\n\n` +
-        `📊 */tokens*\n` +
-        `   Muestra todos los tokens disponibles\n\n` +
-        `🆘 */help* - Este mensaje`,
-        { parse_mode: 'Markdown' });
+
+    ctx.reply(
+`📋 <b>COMANDOS DETALLADOS</b>
+
+📈 /alert_up TOKEN PRECIO
+   Ej: /alert_up OFC 0.06
+   Te avisa cuando el precio SUBA a un valor
+
+📉 /alert_down TOKEN PRECIO
+   Ej: /alert_down OFC 0.04
+   Te avisa cuando el precio BAJE a un valor
+
+📋 /alerts
+   Muestra todas tus alertas activas
+
+❌ /cancel_alert ID
+   Ej: /cancel_alert 1734567890
+
+💰 /price TOKEN
+   Ej: /price AERO
+
+ℹ️ /info TOKEN
+   Ej: /info VIRTUAL
+
+📊 /tokens
+   Muestra todos los tokens disponibles
+
+🆘 /help
+   Muestra este mensaje`,
+        { parse_mode: 'HTML' }
+    );
 });
 
 bot.command('tokens', (ctx) => {
