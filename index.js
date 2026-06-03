@@ -297,16 +297,20 @@ bot.command('alert_down', (ctx) => {
 
 bot.command('alerts', (ctx) => {
     if (!isAuthorized(ctx)) return;
+
     const active = alerts.filter(a => a.status === 'active');
     if (active.length === 0) return ctx.reply('No hay alertas activas');
     
-    let msg = '🔔 *Alertas activas:*\n\n';
+    let msg = '🔔 <b>Alertas activas:</b>\n\n';
+
     active.forEach(a => {
         const directionIcon = a.direction === 'up' ? '📈' : '📉';
         const directionText = a.direction === 'up' ? 'Subida' : 'Bajada';
-        msg += `${directionIcon} *${a.id}* | ${a.token} | ${directionText} | 🎯 ${a.targetPrice} USDC\n`;
+
+        msg += `${directionIcon} <b>${a.id}</b> | ${a.token} | ${directionText} | 🎯 ${a.targetPrice} USDC\n`;
     });
-    ctx.reply(msg, { parse_mode: 'Markdown' });
+
+    ctx.reply(msg, { parse_mode: 'HTML' });
 });
 
 bot.command('cancel_alert', (ctx) => {
@@ -325,13 +329,14 @@ bot.command('cancel_alert', (ctx) => {
 
 // ==================== INICIALIZACIÓN ====================
 
-// ==================== INICIALIZACIÓN ====================
-
 loadAlerts();
 
 const startBot = async () => {
   try {
     await bot.telegram.deleteWebhook();
+
+    // MUY IMPORTANTE: reset total de updates
+    await bot.telegram.getUpdates({ offset: -1 });
 
     await bot.launch({
       dropPendingUpdates: true
