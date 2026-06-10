@@ -186,26 +186,19 @@ bot.start((ctx) => {
 
 bot.command('help', (ctx) => {
     if (!isAuthorized(ctx)) return;
-
     ctx.reply(
-`📋 <b>COMANDOS DETALLADOS</b>
+`📋 COMANDOS DETALLADOS
 
 📈 /alert_up TOKEN PRECIO
    Ej: /alert_up OFC 0.06
-   Te avisa cuando el precio SUBA a un valor
-bot.command('alert_up', (ctx) => {
-    console.log('📩 /alert_up recibido');
+   Te avisa cuando el precio SUBA a ese valor
 
 📉 /alert_down TOKEN PRECIO
    Ej: /alert_down OFC 0.04
-   Te avisa cuando el precio BAJE a un valor
-bot.command('alert_down', (ctx) => {
-    console.log('📩 /alert_down recibido');
+   Te avisa cuando el precio BAJE a ese valor
 
 📋 /alerts
    Muestra todas tus alertas activas
-bot.command('alerts', (ctx) => {
-    console.log('📩 /alerts recibido');
 
 ❌ /cancel_alert ID
    Ej: /cancel_alert 1734567890
@@ -221,7 +214,7 @@ bot.command('alerts', (ctx) => {
 
 🆘 /help
    Muestra este mensaje`,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'Markdown' }
     );
 });
 
@@ -324,16 +317,13 @@ bot.command('alerts', (ctx) => {
     const active = alerts.filter(a => a.status === 'active');
     if (active.length === 0) return ctx.reply('No hay alertas activas');
     
-    let msg = '🔔 <b>Alertas activas:</b>\n\n';
-
+    let msg = '🔔 *Alertas activas:*\n\n';
     active.forEach(a => {
         const directionIcon = a.direction === 'up' ? '📈' : '📉';
         const directionText = a.direction === 'up' ? 'Subida' : 'Bajada';
-
-        msg += `${directionIcon} <b>${a.id}</b> | ${a.token} | ${directionText} | 🎯 ${a.targetPrice} USDC\n`;
+        msg += `${directionIcon} *${a.id}* | ${a.token} | ${directionText} | 🎯 ${a.targetPrice} USDC\n`;
     });
-
-    ctx.reply(msg, { parse_mode: 'HTML' });
+    ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
 bot.command('cancel_alert', (ctx) => {
@@ -355,37 +345,21 @@ bot.command('cancel_alert', (ctx) => {
 loadAlerts();
 
 const startBot = async () => {
-  try {
-
-    await bot.telegram.deleteWebhook({
-      drop_pending_updates: true
-    });
-
-    const me = await bot.telegram.getMe();
-
-    console.log(`🤖 Bot conectado: @${me.username}`);
-
-    await bot.launch({
-      dropPendingUpdates: true
-    });
-
-    console.log('🚀 Bot de Alertas Multi-Token iniciado');
-
-  } catch (err) {
-
-    if (err.response?.error_code === 409) {
-
-      console.error('❌ ERROR 409');
-      console.error('Otra instancia del bot está ejecutándose');
-      process.exit(1);
-
-    } else {
-
-      console.error('❌ Error al iniciar:', err);
-      process.exit(1);
-
+    try {
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        const me = await bot.telegram.getMe();
+        console.log(`🤖 Bot conectado: @${me.username}`);
+        await bot.launch({ dropPendingUpdates: true });
+        console.log('🚀 Bot de Alertas Multi-Token iniciado');
+    } catch (err) {
+        if (err.response?.error_code === 409) {
+            console.error('❌ ERROR 409: Otra instancia del bot está ejecutándose');
+            process.exit(1);
+        } else {
+            console.error('❌ Error al iniciar:', err);
+            process.exit(1);
+        }
     }
-  }
 };
 
 startBot();
@@ -394,14 +368,13 @@ startBot();
 setInterval(checkAlerts, 30000);
 
 // Servidor HTTP para Render
-const PORT = process.env.PORT || 10000;
 const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot de alertas multi-token funcionando ✅');
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot de alertas multi-token funcionando ✅');
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Servidor HTTP escuchando en puerto ${PORT}`);
+    console.log(`✅ Servidor HTTP escuchando en puerto ${PORT}`);
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
