@@ -14,6 +14,7 @@ if (!TELEGRAM_BOT_TOKEN) throw new Error('Falta TELEGRAM_BOT_TOKEN');
 if (!AUTHORIZED_USER_ID) throw new Error('Falta AUTHORIZED_USER_ID');
 
 const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+const PORT = process.env.PORT || 10000;
 
 // ==================== TOKENS ====================
 
@@ -71,6 +72,13 @@ let isChecking = false;
 // ==================== FUNCIONES AUXILIARES ====================
 
 function isAuthorized(ctx) {
+    console.log(
+        'USER:',
+        ctx.from?.id,
+        'AUTHORIZED:',
+        AUTHORIZED_USER_ID
+    );
+
     return String(ctx.from.id) === AUTHORIZED_USER_ID;
 }
 
@@ -188,13 +196,19 @@ bot.command('help', (ctx) => {
 📈 /alert_up TOKEN PRECIO
    Ej: /alert_up OFC 0.06
    Te avisa cuando el precio SUBA a un valor
+bot.command('alert_up', (ctx) => {
+    console.log('📩 /alert_up recibido');
 
 📉 /alert_down TOKEN PRECIO
    Ej: /alert_down OFC 0.04
    Te avisa cuando el precio BAJE a un valor
+bot.command('alert_down', (ctx) => {
+    console.log('📩 /alert_down recibido');
 
 📋 /alerts
    Muestra todas tus alertas activas
+bot.command('alerts', (ctx) => {
+    console.log('📩 /alerts recibido');
 
 ❌ /cancel_alert ID
    Ej: /cancel_alert 1734567890
@@ -344,33 +358,39 @@ bot.command('cancel_alert', (ctx) => {
 loadAlerts();
 
 const startBot = async () => {
-try {
-    await bot.telegram.deleteWebhook();
+  try {
 
-    // MUY IMPORTANTE: reset total de updates
-    await bot.telegram.getUpdates({ offset: -1 });
+    await bot.telegram.deleteWebhook({
+      drop_pending_updates: true
+    });
+
+    const me = await bot.telegram.getMe();
+
+    console.log(`🤖 Bot conectado: @${me.username}`);
 
     await bot.launch({
       dropPendingUpdates: true
     });
 
     console.log('🚀 Bot de Alertas Multi-Token iniciado');
+
   } catch (err) {
-    // Si es error 409 (conflicto de instancia), no matamos el proceso
-    if (err.code === 409 || err.response?.error_code === 409) {
-      console.warn('⚠️ Conflicto detectado: Otra instancia del bot está activa');
-      console.warn('   El servidor web seguirá funcionando en el puerto', PORT);
-      console.warn('   Para resolver:');
-      console.warn('   1. Cierra cualquier terminal local con el bot');
-      console.warn('   2. Abre en tu navegador:');
-      console.warn('   https://api.telegram.org/bot' + process.env.BOT_TOKEN + '/deleteWebhook?drop_pending_updates=true');
-      console.warn('   3. Luego reinicia este servicio en Render');
+
+    if (err.response?.error_code === 409) {
+
+      console.error('❌ ERROR 409');
+      console.error('Otra instancia del bot está ejecutándose');
+      process.exit(1);
+
     } else {
-      console.error('❌ Error crítico al iniciar bot:', err.message);
-      process.exit(1); // Solo salimos si es otro error grave
+
+      console.error('❌ Error al iniciar:', err);
+      process.exit(1);
+
     }
   }
 };
+
 startBot();
 
 // Monitoreo cada 30 segundos
