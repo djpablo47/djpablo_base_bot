@@ -344,7 +344,7 @@ bot.command('cancel_alert', (ctx) => {
 loadAlerts();
 
 const startBot = async () => {
-  try {
+try {
     await bot.telegram.deleteWebhook();
 
     // MUY IMPORTANTE: reset total de updates
@@ -356,11 +356,21 @@ const startBot = async () => {
 
     console.log('🚀 Bot de Alertas Multi-Token iniciado');
   } catch (err) {
-    console.error('Error launching bot:', err);
-    process.exit(1);
+    // Si es error 409 (conflicto de instancia), no matamos el proceso
+    if (err.code === 409 || err.response?.error_code === 409) {
+      console.warn('⚠️ Conflicto detectado: Otra instancia del bot está activa');
+      console.warn('   El servidor web seguirá funcionando en el puerto', PORT);
+      console.warn('   Para resolver:');
+      console.warn('   1. Cierra cualquier terminal local con el bot');
+      console.warn('   2. Abre en tu navegador:');
+      console.warn('   https://api.telegram.org/bot' + process.env.BOT_TOKEN + '/deleteWebhook?drop_pending_updates=true');
+      console.warn('   3. Luego reinicia este servicio en Render');
+    } else {
+      console.error('❌ Error crítico al iniciar bot:', err.message);
+      process.exit(1); // Solo salimos si es otro error grave
+    }
   }
 };
-
 startBot();
 
 // Monitoreo cada 30 segundos
