@@ -16,7 +16,7 @@ if (!AUTHORIZED_USER_ID) throw new Error('Falta AUTHORIZED_USER_ID');
 const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 const PORT = process.env.PORT || 10000;
 
-// ==================== TOKENS ====================
+// ==================== TOKENS (ACTUALIZADOS) ====================
 
 const TOKENS = {
     OFC: {
@@ -24,42 +24,43 @@ const TOKENS = {
         nombre: 'OneFootball Credits',
         web: 'https://onefootball.com',
         desc: 'Fan token de OneFootball'
+        address: '0x752c5a95d202972e124390f30a50154409d3c858'
+
     },
     MORPHO: {
         symbol: 'MORPHO',
         nombre: 'Morpho',
         web: 'https://morpho.org',
         desc: 'Protocolo de préstamos optimizado'
+        address: '0xbaa5cc21fd487b8fcc2f632f3f4e8d37262a0842'
     },
     VIRTUAL: {
         symbol: 'VIRTUAL',
         nombre: 'Virtuals Protocol',
         web: 'https://virtuals.io',
         desc: 'IA y agentes virtuales en Base'
+	address: '0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b'
     },
     AERO: {
         symbol: 'AERO',
         nombre: 'Aerodrome Finance',
         web: 'https://aerodrome.finance',
         desc: 'DEX principal de Base'
+	address: '0x940181a94a35a4569e4529a3cdfb74e38fd98631'
     },
     CB_MEGA: {
         symbol: 'CB_MEGA',
         nombre: 'CBMega',
         web: 'https://cbmega.io',
         desc: 'Token de ecosistema Base'
+	address: '0xcb111e6a2a3bde90856d299d61341ac302167d23'
     },
-    FC_BARCELONA: {
-        symbol: 'FC_BARCELONA',
-        nombre: 'FC Barcelona Fan Token',
-        web: 'https://socios.com',
-        desc: 'Fan Token oficial del Barça'
-    },
-    CB_LTC: {
-        symbol: 'CB_LTC',
-        nombre: 'CBLTC',
-        web: 'https://cbltc.io',
-        desc: 'Token de ecosistema Base'
+    SOLANA: {
+        symbol: 'SOLANA',
+        nombre: 'Solana',
+        web: 'https://solana.com',
+        desc: 'Blockchain de alta velocidad',
+        address: '0x311935cd80b76769bf2ecc9d8ab7635b2139cf82'
     }
 };
 
@@ -72,14 +73,9 @@ let isChecking = false;
 // ==================== FUNCIONES AUXILIARES ====================
 
 function isAuthorized(ctx) {
-    console.log(
-        'USER:',
-        ctx.from?.id,
-        'AUTHORIZED:',
-        AUTHORIZED_USER_ID
-    );
-
-    return String(ctx.from.id) === AUTHORIZED_USER_ID;
+    const authorized = String(ctx.from.id) === AUTHORIZED_USER_ID;
+    console.log(`🔐 Usuario: ${ctx.from.id} | Autorizado: ${authorized}`);
+    return authorized;
 }
 
 function validateNumber(value) {
@@ -89,22 +85,23 @@ function validateNumber(value) {
 function saveAlerts() {
     try {
         fs.writeFileSync(ALERTS_FILE, JSON.stringify(alerts, null, 2));
+        console.log('💾 Alertas guardadas');
     } catch (error) {
         console.error('Error guardando alertas:', error);
     }
 }
 
 function loadAlerts() {
-  try {
-    if (!fs.existsSync(ALERTS_FILE)) {
-      fs.writeFileSync(ALERTS_FILE, '[]');
+    try {
+        if (!fs.existsSync(ALERTS_FILE)) {
+            fs.writeFileSync(ALERTS_FILE, '[]');
+        }
+        alerts = JSON.parse(fs.readFileSync(ALERTS_FILE, 'utf8'));
+        console.log(`📂 ${alerts.length} alertas cargadas`);
+    } catch (e) {
+        console.error('Error cargando alertas:', e);
+        alerts = [];
     }
-    alerts = JSON.parse(fs.readFileSync(ALERTS_FILE, 'utf8'));
-    console.log(`📂 ${alerts.length} alertas cargadas`);
-  } catch (e) {
-    console.error('Error cargando alertas:', e);
-    alerts = [];
-  }
 }
 
 // ==================== PRECIOS ====================
